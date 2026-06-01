@@ -1,4 +1,4 @@
-.PHONY: setup run deploy stop install uninstall build install-pre-commit
+.PHONY: setup run deploy stop install install-dev uninstall build install-pre-commit
 
 SETUP_SENTINEL := .setup-complete
 
@@ -34,6 +34,13 @@ install:
 	fi
 	$(MAKE) install-pre-commit
 	$(MAKE) setup
+
+install-dev: install
+	@if ! command -v conda >/dev/null 2>&1; then \
+		echo "Error: Conda is not found in PATH. Please install Conda or add it to your PATH."; \
+		exit 1; \
+	fi
+	conda env update -n hummingbot-api -f environment.dev.yml
 
 uninstall:
 	conda env remove -n hummingbot-api -y

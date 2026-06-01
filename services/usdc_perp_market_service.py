@@ -97,6 +97,7 @@ class USDCPerpMarketService:
         interval: str = "1h",
         max_records: int = 72,
         order_book_depth: int = 100,
+        include_candles: bool = True,
     ) -> Dict[str, Any]:
         prices = await self._market_data_service.get_prices(connector_name, trading_pairs)
         trading_rules = await self._market_data_service.get_trading_rules(connector_name, trading_pairs)
@@ -110,6 +111,7 @@ class USDCPerpMarketService:
                     order_book_depth=order_book_depth,
                     price=prices.get(pair) if isinstance(prices, dict) else None,
                     trading_rule=trading_rules.get(pair) if isinstance(trading_rules, dict) else None,
+                    include_candles=include_candles,
                 )
                 for pair in trading_pairs
             )
@@ -182,11 +184,18 @@ class USDCPerpMarketService:
             return {
                 "generated_at": time.time(),
                 "connector_name": connector_name,
-                "universe_size": 0,
-                "selected_count": 0,
+                "quote_asset": quote_asset,
+                "universe": {
+                    "requested_size": universe_max_pairs,
+                    "actual_size": 0,
+                    "top_n": top_n,
+                    "min_score": min_score,
+                    "interval": interval,
+                    "max_records": max_records,
+                    "order_book_depth": order_book_depth,
+                },
                 "watch_pool": [],
                 "excluded_pairs": [],
-                "screening_candidates": [],
                 "decision_candidates": [],
             }
 
@@ -197,6 +206,7 @@ class USDCPerpMarketService:
                 interval=interval,
                 max_records=max_records,
                 order_book_depth=order_book_depth,
+                include_candles=False,
             ),
             self.get_perp_pressure(connector_name=connector_name, trading_pairs=trading_pairs),
         )
@@ -213,6 +223,7 @@ class USDCPerpMarketService:
 
         for trading_pair in trading_pairs:
             market = snapshot["markets"].get(trading_pair, {})
+            market["candles"] = candles_1h.get(trading_pair, [])
             pair_pressure = pressure["markets"].get(trading_pair, {})
             candidate = self._compute_feature(market, pair_pressure)
             screening = self._build_screening_candidate(
@@ -228,7 +239,7 @@ class USDCPerpMarketService:
             if screening["excluded"]:
                 excluded_pairs.append(
                     {
-                        "trading_pair": trading_pair,
+                        "symbol": trading_pair,
                         "reason_codes": screening["exclusion_reasons"],
                         "market_alerts": screening.get("market_alerts", []),
                         "data_quality_score": screening.get("data_quality_score"),
@@ -278,11 +289,19 @@ class USDCPerpMarketService:
         return {
             "generated_at": time.time(),
             "connector_name": connector_name,
-            "universe_size": len(trading_pairs),
-            "selected_count": len(decision_candidates),
+            "quote_asset": quote_asset,
+            "universe": {
+                "requested_size": universe_max_pairs,
+                "actual_size": len(trading_pairs),
+                "top_n": top_n,
+                "selected_count": len(decision_candidates),
+                "min_score": min_score,
+                "interval": interval,
+                "max_records": max_records,
+                "order_book_depth": order_book_depth,
+            },
             "watch_pool": watch_pool,
             "excluded_pairs": excluded_pairs,
-            "screening_candidates": screening_candidates,
             "decision_candidates": decision_candidates,
         }
 
@@ -619,7 +638,6 @@ class USDCPerpMarketService:
             "symbol": screening["trading_pair"],
             "market_regime": screening.get("market_regime"),
             "recommended_grid_modes": recommended_grid_modes,
-            "screening": screening,
             "liquidity": {
                 "spread_bps": screening.get("spread_bps"),
                 "top_1_depth_quote": top_1_depth_quote,
@@ -652,7 +670,7 @@ class USDCPerpMarketService:
                 "resistance_distance_pct": resistance_distance_pct,
                 "trend_consistency_5m_15m_1h": trend_consistency,
             },
-            "volume_profile": {
+            "volume": {
                 "volume_15m_zscore": volume_15m_zscore,
                 "volume_1h_zscore": volume_1h_zscore,
                 "volume_24h_percentile": volume_24h_percentile,
@@ -692,9 +710,7 @@ class USDCPerpMarketService:
             ),
             "risk_flags": risk_flags,
             "market_alerts": screening.get("market_alerts") or [],
-            "snapshot_errors": screening.get("snapshot_errors") or [],
             "data_quality_score": screening.get("data_quality_score"),
-            "trading_rule": trading_rule,
         }
 
     async def _fetch_kline_batch(
@@ -1256,15 +1272,19 @@ class USDCPerpMarketService:
         order_book_depth: int,
         price: Optional[float],
         trading_rule: Optional[Dict[str, Any]],
+        include_candles: bool = True,
     ) -> Dict[str, Any]:
-        candles_task = asyncio.create_task(
-            self._get_ready_candles(
-                connector_name=connector_name,
-                trading_pair=trading_pair,
-                interval=interval,
-                max_records=max_records,
+        if include_candles:
+            candles_task = asyncio.create_task(
+                self._get_ready_candles(
+                    connector_name=connector_name,
+                    trading_pair=trading_pair,
+                    interval=interval,
+                    max_records=max_records,
+                )
             )
-        )
+        else:
+            candles_task = asyncio.create_task(self._empty_candles_result())
         order_book_task = asyncio.create_task(
             self._get_ready_order_book(
                 connector_name=connector_name,
@@ -1296,6 +1316,10 @@ class USDCPerpMarketService:
             "trading_rule": trading_rule,
             "errors": errors,
         }
+
+    @staticmethod
+    async def _empty_candles_result() -> Tuple[List[Dict[str, Any]], Optional[str]]:
+        return [], None
 
     async def _get_ready_candles(
         self,

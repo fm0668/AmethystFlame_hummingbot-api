@@ -4,6 +4,7 @@ from deps import get_market_data_service
 from models.usdc_perp_market import (
     USDCCandidatesRequest,
     USDCDecisionCandidatesRequest,
+    USDCDecisionCandidatesResponse,
     USDCMarketSnapshotRequest,
     USDCPerpPressureRequest,
     USDCUniverseRequest,
@@ -51,7 +52,7 @@ async def get_candidates(request: USDCCandidatesRequest, service: USDCPerpMarket
     return await service.get_candidates(**request.model_dump())
 
 
-@router.post("/decision-candidates")
+@router.post("/decision-candidates", response_model=USDCDecisionCandidatesResponse)
 async def get_decision_candidates(
     request: USDCDecisionCandidatesRequest,
     service: USDCPerpMarketService = Depends(get_service),

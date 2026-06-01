@@ -94,12 +94,31 @@ class CandidateFeature(BaseModel):
     market_alerts: List[str] = Field(default_factory=list)
 
 
+class DecisionCandidateSection(BaseModel):
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DecisionCandidate(BaseModel):
+    symbol: str
+    market_regime: str
+    recommended_grid_modes: List[str] = Field(default_factory=list)
+    liquidity: Dict[str, Any] = Field(default_factory=dict)
+    volatility: Dict[str, Any] = Field(default_factory=dict)
+    trend: Dict[str, Any] = Field(default_factory=dict)
+    volume: Dict[str, Any] = Field(default_factory=dict)
+    perp_pressure: Dict[str, Any] = Field(default_factory=dict)
+    execution: Dict[str, Any] = Field(default_factory=dict)
+    reason_codes: List[str] = Field(default_factory=list)
+    risk_flags: List[str] = Field(default_factory=list)
+    market_alerts: List[str] = Field(default_factory=list)
+    data_quality_score: Optional[float] = None
+
+
 class USDCDecisionCandidatesResponse(BaseModel):
     generated_at: float
     connector_name: str
-    universe_size: int
-    selected_count: int
+    quote_asset: str
+    universe: Dict[str, Any] = Field(default_factory=dict)
     watch_pool: List[str] = Field(default_factory=list)
     excluded_pairs: List[Dict[str, Any]] = Field(default_factory=list)
-    screening_candidates: List[Dict[str, Any]] = Field(default_factory=list)
-    decision_candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    decision_candidates: List[DecisionCandidate] = Field(default_factory=list)

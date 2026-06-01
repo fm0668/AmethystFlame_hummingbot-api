@@ -218,14 +218,15 @@ async def test_get_decision_candidates_returns_structured_ai_inputs():
         min_score=60,
     )
 
-    assert result["selected_count"] == 1
+    assert result["universe"]["selected_count"] == 1
     assert result["watch_pool"] == ["BTC-USDC"]
-    assert result["excluded_pairs"][0]["trading_pair"] == "DOGE-USDC"
+    assert result["excluded_pairs"][0]["symbol"] == "DOGE-USDC"
 
     candidate = result["decision_candidates"][0]
     assert candidate["symbol"] == "BTC-USDC"
     assert candidate["recommended_grid_modes"]
     assert candidate["liquidity"]["depth_50bps_quote"] > 0
     assert candidate["volatility"]["atr_15m_pct"] is not None
+    assert candidate["volume"]["volume_1h_zscore"] is not None
     assert candidate["perp_pressure"]["funding_rate_zscore"] is not None
     assert candidate["execution"]["max_grid_levels"] >= 3
