@@ -34,6 +34,18 @@ class USDCCandidatesRequest(USDCMarketSnapshotRequest):
     min_score: int = Field(default=60, ge=0, le=100)
 
 
+class USDCDecisionCandidatesRequest(BaseModel):
+    connector_name: str = "binance_perpetual"
+    quote_asset: str = "USDC"
+    universe_max_pairs: int = Field(default=32, ge=1, le=200)
+    top_n: int = Field(default=10, ge=1, le=50)
+    interval: str = "1h"
+    max_records: int = Field(default=72, ge=10, le=1000)
+    order_book_depth: int = Field(default=100, ge=1, le=1000)
+    min_score: int = Field(default=60, ge=0, le=100)
+    min_24h_quote_volume: float = Field(default=0, ge=0)
+
+
 class PerpPressure(BaseModel):
     trading_pair: str
     symbol: str
@@ -80,3 +92,14 @@ class CandidateFeature(BaseModel):
     snapshot_errors: List[str] = Field(default_factory=list)
     reason_codes: List[str] = Field(default_factory=list)
     market_alerts: List[str] = Field(default_factory=list)
+
+
+class USDCDecisionCandidatesResponse(BaseModel):
+    generated_at: float
+    connector_name: str
+    universe_size: int
+    selected_count: int
+    watch_pool: List[str] = Field(default_factory=list)
+    excluded_pairs: List[Dict[str, Any]] = Field(default_factory=list)
+    screening_candidates: List[Dict[str, Any]] = Field(default_factory=list)
+    decision_candidates: List[Dict[str, Any]] = Field(default_factory=list)
