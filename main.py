@@ -58,6 +58,8 @@ from routers import (  # noqa: E402
     scripts,
     storage,
     trading,
+    usdc_ai_grid,
+    usdc_perp_market,
     websocket,
 )
 from services.accounts_service import AccountsService  # noqa: E402
@@ -388,6 +390,8 @@ app.include_router(rate_oracle.router, dependencies=[Depends(auth_user)])
 app.include_router(backtesting.router, dependencies=[Depends(auth_user)])
 app.include_router(archived_bots.router, dependencies=[Depends(auth_user)])
 app.include_router(storage.router, dependencies=[Depends(auth_user)])
+app.include_router(usdc_perp_market.router, dependencies=[Depends(auth_user)])
+app.include_router(usdc_ai_grid.router, dependencies=[Depends(auth_user)])
 
 app.include_router(executors.router, dependencies=[Depends(auth_user)])
 
