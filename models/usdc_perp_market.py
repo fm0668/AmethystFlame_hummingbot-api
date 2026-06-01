@@ -43,6 +43,10 @@ class PerpPressure(BaseModel):
     index_price: Optional[float] = None
     basis_pct: Optional[float] = None
     open_interest: Optional[float] = None
+    open_interest_history: List[Dict[str, Any]] = Field(default_factory=list)
+    open_interest_change_pct_5m: Optional[float] = None
+    open_interest_change_pct_1h: Optional[float] = None
+    open_interest_change_pct_4h: Optional[float] = None
     errors: List[str] = Field(default_factory=list)
 
 
@@ -68,6 +72,11 @@ class CandidateFeature(BaseModel):
     funding_rate_pct: Optional[float] = None
     basis_pct: Optional[float] = None
     open_interest: Optional[float] = None
+    open_interest_change_pct_5m: Optional[float] = None
+    open_interest_change_pct_1h: Optional[float] = None
+    open_interest_change_pct_4h: Optional[float] = None
+    open_interest_history: List[Dict[str, Any]] = Field(default_factory=list)
+    trading_rule: Optional[Dict[str, Any]] = None
+    snapshot_errors: List[str] = Field(default_factory=list)
     reason_codes: List[str] = Field(default_factory=list)
     market_alerts: List[str] = Field(default_factory=list)
-
