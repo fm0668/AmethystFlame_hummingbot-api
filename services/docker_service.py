@@ -36,6 +36,44 @@ class DockerService:
         except DockerException as e:
             logger.error(f"It was not possible to connect to Docker. Please make sure Docker is running. Error: {e}")
 
+    def _get_local_bots_root(self) -> str:
+        """Resolve the path used for local file operations inside the API runtime."""
+        env_source_path = os.environ.get("SOURCE_PATH")
+        base_path = env_source_path or self.SOURCE_PATH
+        return os.path.join(base_path, "bots")
+
+    def _get_host_project_root(self) -> str:
+        """
+        Resolve the host path that Docker should use for bind mounts.
+
+        When the API runs inside a container, ``os.getcwd()`` points to the container
+        filesystem (for example ``/hummingbot-api``), but Docker bind mounts must use
+        host paths (for example ``/opt/amethystflame/AmethystFlame_hummingbot-api``).
+        Prefer an explicit ``BOTS_PATH`` override, otherwise inspect the current API
+        container and infer the host project root from the mounted ``/hummingbot-api/bots``.
+        """
+        env_bots_path = os.environ.get("BOTS_PATH")
+        if env_bots_path:
+            return env_bots_path
+
+        hostname = os.environ.get("HOSTNAME")
+        if hostname:
+            try:
+                current_container = self.client.containers.get(hostname)
+                for mount in current_container.attrs.get("Mounts", []):
+                    destination = mount.get("Destination")
+                    source = mount.get("Source")
+                    if destination and source and destination.rstrip("/") == "/hummingbot-api/bots":
+                        return os.path.dirname(source)
+            except DockerException as e:
+                logger.warning(f"Failed to infer host project root from container mounts: {e}")
+
+        logger.warning(
+            "BOTS_PATH not set and host project root could not be inferred from mounts; "
+            f"falling back to SOURCE_PATH={self.SOURCE_PATH}"
+        )
+        return self.SOURCE_PATH
+
     def get_active_containers(self, name_filter: str = None):
         try:
             all_containers = self.client.containers.list(filters={"status": "running"})
@@ -162,7 +200,7 @@ class DockerService:
             return {"success": False, "message": str(e)}
 
     def create_hummingbot_instance(self, config: V2ControllerDeployment):
-        bots_path = os.environ.get('BOTS_PATH', self.SOURCE_PATH)  # Default to 'SOURCE_PATH' if BOTS_PATH is not set
+        host_project_root = self._get_host_project_root()
         instance_name = config.instance_name
         instance_dir = os.path.join("bots", 'instances', instance_name)
         if not os.path.exists(instance_dir):
@@ -233,14 +271,14 @@ class DockerService:
         fs_util.dump_dict_to_yaml(conf_file_path, client_config)
 
         # Set up Docker volumes
-        instance_conf = os.path.abspath(os.path.join(bots_path, instance_dir, 'conf'))
-        instance_connectors = os.path.abspath(os.path.join(bots_path, instance_dir, 'conf', 'connectors'))
-        instance_scripts = os.path.abspath(os.path.join(bots_path, instance_dir, 'conf', 'scripts'))
-        instance_controllers = os.path.abspath(os.path.join(bots_path, instance_dir, 'conf', 'controllers'))
-        instance_data = os.path.abspath(os.path.join(bots_path, instance_dir, 'data'))
-        instance_logs = os.path.abspath(os.path.join(bots_path, instance_dir, 'logs'))
-        shared_scripts = os.path.abspath(os.path.join(bots_path, "bots", 'scripts'))
-        shared_controllers = os.path.abspath(os.path.join(bots_path, "bots", 'controllers'))
+        instance_conf = os.path.abspath(os.path.join(host_project_root, instance_dir, 'conf'))
+        instance_connectors = os.path.abspath(os.path.join(host_project_root, instance_dir, 'conf', 'connectors'))
+        instance_scripts = os.path.abspath(os.path.join(host_project_root, instance_dir, 'conf', 'scripts'))
+        instance_controllers = os.path.abspath(os.path.join(host_project_root, instance_dir, 'conf', 'controllers'))
+        instance_data = os.path.abspath(os.path.join(host_project_root, instance_dir, 'data'))
+        instance_logs = os.path.abspath(os.path.join(host_project_root, instance_dir, 'logs'))
+        shared_scripts = os.path.abspath(os.path.join(host_project_root, "bots", 'scripts'))
+        shared_controllers = os.path.abspath(os.path.join(host_project_root, "bots", 'controllers'))
 
         volumes = {
             instance_conf: {'bind': '/home/hummingbot/conf', 'mode': 'rw'},
